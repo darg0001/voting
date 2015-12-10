@@ -10,6 +10,7 @@ class MessageServer(object):
 
   def __init__(self, address, capacity=constants.MESSAGE_SERVER_CAPACITY):
     self.logger = logger.Logger(constants.MESSAGE_SERVER_TAG)
+    self.logger.enable_debug_mode()
     # Maps client names to sockets
     self.client_sockets = {}
     # Maps client file descriptors to sockets
