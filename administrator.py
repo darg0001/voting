@@ -19,7 +19,15 @@ class Administrator(client.Robot):
     if voter_id in self.applied_for_signature:
       self.logger.error("Voter has already requested a signature")
       return False
+    if not self.check_vote_signature(vote, blinded_commitment):
+      self.logger.error("Vote signature couldn't be verified")
+      return False
+    self.num_votes_received += 1
     return True
+
+  def check_vote_signature(self, signature, verifier):
+    signer = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_VOTER)
+    return signer.verify(signature) == crypto.Signature.hash(verifier)
 
   def __init__(self, name):
     client.Robot.__init__(self, name, constants.ADMINISTRATOR_TAG)
@@ -27,6 +35,7 @@ class Administrator(client.Robot):
     self.applied_for_signature = set()
     self.commands["register_id"] = self.register_voter
     self.commands["request_signature"] = self.check_and_sign_vote
+    self.num_votes_received = 0
 
 def main():
   administrator = Administrator("Administrator")

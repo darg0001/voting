@@ -63,17 +63,21 @@ class FiniteFieldCryptoObject(CryptoObject):
     CryptoObject.__init__(self, prefix)
     self.modulus = modulus
 
-  def get_inverse(self, n):
-    n %= self.modulus
-    t, newt, r, newr = (0, 1, self.modulus, n)
+  @staticmethod
+  def get_inverse_mod(n, modulus):
+    n %= modulus
+    t, newt, r, newr = (0, 1, modulus, n)
     while newr != 0:
       q = r // newr
       (t, newt) = (newt, t - q * newt)
       (r, newr) = (newr, r - q * newr)
     assert r <= 1
     if t < 0:
-      t += self.modulus
+      t += modulus
     return t
+
+  def get_inverse(self, n):
+    return FiniteFieldCryptoObject.get_inverse_mod(n, self.modulus)
 
 class BitCommit(SeededCryptoObject):
 
@@ -151,17 +155,19 @@ class Signature(FiniteFieldCryptoObject):
     self.q = q
     self.e = e
     self.n = (p * q) % self.modulus
-    self.d = self.get_inverse((self.p - 1) * (self.q - 1))
+    self.d = self.get_inverse_mod(self.e, (self.p - 1) * (self.q - 1))
+    self.logger.log(self.d)
 
   @staticmethod
   def hash(n):
-    return int(hashlib.md5(str(n)).hexdigest(), 16)
+    modulus = (constants.RSA_P - 1) * (constants.RSA_Q - 1)
+    return int(hashlib.md5(str(n)).hexdigest(), 16) % modulus
 
   def sign(self, n):
     return pow(self.hash(n), self.d, self.modulus)
 
   def verify(self, n):
-    return pow(n, self.e, self.modulus)
+    return pow(int(n), self.e, self.modulus)
 
 if __name__ == "__main__":
   main()
