@@ -144,7 +144,10 @@ class BlindSignature(FiniteFieldCryptoObject):
     self.r = r
 
   def blind_sign(self, n):
-    return pow(n, self.get_inverse(constants.BLIND_SIGNATURE_PUBLIC_KEY), self.modulus)
+    return pow(int(n), self.get_inverse(constants.BLIND_SIGNATURE_PUBLIC_KEY), self.modulus)
+
+  def verify(self, n):
+    return (pow(int(n), constants.BLIND_SIGNATURE_PUBLIC_KEY, self.modulus) * self.get_inverse(self.r)) % self.modulus
 
 class Signature(FiniteFieldCryptoObject):
 

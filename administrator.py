@@ -18,7 +18,7 @@ class Administrator(client.Robot):
   def broadcast(self, message):
     self.logger.debug_log("Broadcasting: " + str(message))
     for voter_id in self.registered_voters:
-      self.send_message(voter_id, message)
+      self.send_signed_message(voter_id, message)
 
   def finish_administration(self):
     self.state = constants.ADMINISTRATION_COMPLETE_STATE
@@ -41,19 +41,17 @@ class Administrator(client.Robot):
     if not self.check_vote_signature(vote, blinded_commitment):
       self.logger.error("Vote signature couldn't be verified")
       return False
-    signer = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_ADMINISTRATOR)
-    certificate = signer.sign(blinded_commitment)
+    certificate = self.signer.sign(blinded_commitment)
     self.logger.debug_log("Signed blinded vote: " + str(certificate))
     self.num_votes_received += 1
     if self.num_votes_received == len(self.registered_voters):
       self.finish_administration()
       return certificate
     else:
-      return "wait"
+      return "wait" + constants.PACKET_SPACE + str(certificate)
 
   def check_vote_signature(self, signature, verifier):
-    signer = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_VOTER)
-    return signer.verify(signature) == crypto.Signature.hash(verifier)
+    return self.signer.verify(signature) == crypto.Signature.hash(verifier)
 
   def __init__(self, name):
     client.Robot.__init__(self, name, constants.ADMINISTRATOR_TAG)
@@ -63,6 +61,7 @@ class Administrator(client.Robot):
     self.commands["request_signature"] = self.check_and_sign_vote
     self.num_votes_received = 0
     self.state = constants.REGISTRATION_STATE
+    self.signer = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_VOTER)
 
 def main():
   administrator = Administrator("Administrator")

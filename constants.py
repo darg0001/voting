@@ -14,7 +14,7 @@ MESSAGE_SERVER_CAPACITY=4
 # The server's socket address
 MESSAGE_SERVER_ADDRESS=('localhost', 6610)
 # The maximum amount of time the server spends accepting clients
-MESSAGE_SERVER_TIMEOUT=10
+MESSAGE_SERVER_TIMEOUT=60
 
 # Logger tags
 MESSAGE_SERVER_TAG="MessageServer"

@@ -35,8 +35,8 @@ class MessageServer(object):
         self.logger.log("Server capacity reached")
         break
       (client_socket, client_address) = self.socket.accept()
-      (target, client_name) = packet.Packet.receive_packet(client_socket)
-      assert(target == "MessageServer")
+      ((_, target), client_name) = packet.Packet.receive_packet(client_socket)
+      assert(target == str(self.get_address()))
       self.add_client(client_name, client_socket)
     # Complete the connection handshake with all clients
     # by sending an "ack"
@@ -60,24 +60,23 @@ class MessageServer(object):
       ready_events = select.select(self.client_fds.keys(), [], [])[0]
       for ready_event in ready_events:
         client_socket = self.client_fds[ready_event]
-        (target, message) = packet.Packet.receive_packet(client_socket)
-        if target != '' and message != '':
-          self.logger.log("Received message (" + message + ") for " + target)
-          self.send_message(target, message)
+        ((return_address, target_address), message) = packet.Packet.receive_packet(client_socket)
+        if return_address != '' and target_address != '' and message != '':
+          self.send_message(return_address, target_address, message)
 
   def broadcast(self, message):
     for client_name in self.client_sockets.keys():
-      self.send_message(client_name, message)
+      self.send_message(str(self.get_address()), client_name, message)
 
-  def send_message(self, target, message):
-    self.logger.log("Sending message (" + message + ") to " + target)
-    if target not in self.client_sockets.keys():
+  def send_message(self, return_address, target_address, message):
+    self.logger.log("Sending message (" + message + ") to " + target_address)
+    if target_address not in self.client_sockets.keys():
       self.logger.error("Could not find target client on network")
       return
-    target_socket = self.client_sockets[target]
+    target_socket = self.client_sockets[target_address]
     # Send data to a client, typically this will be a
     # message sent from another client
-    packet.Packet.send_raw(target, message, target_socket)
+    packet.Packet.send_raw(return_address, target_address, message, target_socket)
 
   def get_address(self):
     return self.address
