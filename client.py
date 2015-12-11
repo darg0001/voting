@@ -1,5 +1,5 @@
 import constants
-import cryptomath
+import crypto
 import logger
 import packet
 
@@ -32,7 +32,7 @@ class Client(object):
     self.logger.log("Connected to server")
 
   def send_message(self, target, message):
-    self.logger.log("Sending message (" + message + ") to " + target)
+    self.logger.log("Sending message (" + str(message) + ") to " + target)
     packet.Packet.send_raw(target, message, self.socket)
 
   def send_signed_message(self, target, message):

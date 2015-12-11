@@ -22,7 +22,7 @@ class Packet(object):
 
   @staticmethod
   def send_raw(header, payload, socket):
-    header = header + constants.PACKET_PAD * (constants.HEADER_SIZE - len(header))
-    payload = payload + constants.PACKET_PAD * (constants.PAYLOAD_SIZE - len(payload))
-    packet = header + payload
+    header = str(header) + constants.PACKET_PAD * (constants.HEADER_SIZE - len(str(header)))
+    payload = str(payload) + constants.PACKET_PAD * (constants.PAYLOAD_SIZE - len(str(payload)))
+    packet = str(header) + str(payload)
     socket.sendall(packet)
