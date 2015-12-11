@@ -2,19 +2,19 @@ import client
 import constants
 import crypto
 
+import sys
 import time
 
 class Voter(client.User):
 
   def __init__(self, name):
-    client.Client.__init__(self, name, constants.VOTER_TAG)
+    client.Client.__init__(self, crypto.Signature.hash(name), constants.VOTER_TAG)
 
   def register_id(self):
-    self.voter_id = crypto.Signature.hash(self.name)
     target = "Administrator"
     self.send_return_address(target)
     self.send_message(target, "register_id")
-    self.send_message(target, self.voter_id)
+    self.send_message(target, self.name)
     (target, response) = self.receive_message()
     assert(eval(response))
 
@@ -80,12 +80,24 @@ class Voter(client.User):
     target = "Administrator"
     self.send_return_address(target)
     self.send_message(target, "request_signature")
-    self.send_message(target, str(self.voter_id) + constants.PACKET_SPACE + str(vote) + constants.PACKET_SPACE + str(blinded_commitment))
+    self.send_message(target, str(self.name) + constants.PACKET_SPACE + str(vote) + constants.PACKET_SPACE + str(blinded_commitment))
+    (_, response) = self.receive_message()
+    while response == "wait":
+      (_, response) = self.receive_message()
+    self.logger.log("Voter list")
+    self.logger.log("ID Commitment Signature")
+    for i in range(int(response)):
+      (_, vote_line) = self.receive_message()
+      vote_line = vote_line.split(constants.PACKET_SPACE)
+      self.logger.log(vote_line[0] + " " + vote_line[1] + " " + vote_line[2])
     (target, response) = self.receive_message()
     return response
 
 def main():
-  voter = Voter("Voter")
+  voter_suffix = str(sys.argv[1])
+  voter_name = "Voter " + voter_suffix
+  print("Joining as: " + voter_name)
+  voter = Voter(voter_name)
   voter.connect_to_server(constants.MESSAGE_SERVER_ADDRESS)
   voter.register_id()
   voter.set_ballot(constants.BALLOT)
@@ -93,7 +105,7 @@ def main():
   commitment = crypto.CryptoObject.bit_vector_to_int(voter.commit_vote())
   blinded_commitment = voter.blind_vote(commitment)
   signed_blinded_commitment = voter.sign_vote(blinded_commitment)
-  assert(voter.send_vote(signed_blinded_commitment, blinded_commitment))
+  certificate = voter.send_vote(signed_blinded_commitment, blinded_commitment)
 
 if __name__ == "__main__":
   main()

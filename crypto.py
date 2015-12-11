@@ -156,7 +156,6 @@ class Signature(FiniteFieldCryptoObject):
     self.e = e
     self.n = (p * q) % self.modulus
     self.d = self.get_inverse_mod(self.e, (self.p - 1) * (self.q - 1))
-    self.logger.log(self.d)
 
   @staticmethod
   def hash(n):
