@@ -43,6 +43,8 @@ class Client(object):
 
   def receive_checked_message_from(self, verify_return_address):
     ((return_address, target_address), payload) = self.receive_message()
+    if return_address == '' or target_address == '':
+      return
     assert(return_address == verify_return_address)
     assert(target_address == self.name)
     return((return_address, target_address), payload)
@@ -63,23 +65,31 @@ class Robot(Client):
   def __init__(self, name, prefix):
     Client.__init__(self, name, prefix)
     self.commands = {}
+    self.dropped_packets = 0
 
   def serve(self):
     while True:
       ((return_address, target_address), command_and_args) = self.receive_message()
-      command_and_args = command_and_args.split(constants.PACKET_SPACE)
-      command = command_and_args[0]
-      self.logger.log("Command received (" + command + ")")
-      args = None if command_and_args[1] == 'void' else command_and_args[1:]
-      self.logger.log("Args received (" + str(args) + ")")
-      response = self.handle_command(command, args)
-      self.send_signed_message(return_address, str(response))
+      if return_address != '' and target_address != '' and command_and_args != '':
+        command_and_args = command_and_args.split(constants.PACKET_SPACE)
+        command = command_and_args[0]
+        self.logger.log("Command received (" + command + ")")
+        args = None if command_and_args[1] == 'void' else command_and_args[1:]
+        self.logger.log("Args received (" + str(args) + ")")
+        response = self.handle_command(command, args)
+        self.send_signed_message(return_address, response)
+      else:
+        self.dropped_packets += 1
+        if self.dropped_packets == 1:
+          self.logger.error('Dropping invalid packet. One or more clients may have lost connection...')
+        else:
+          break
 
   def handle_command(self, command, args):
     if command not in self.commands.keys():
       self.logger.error("Command not recognized")
       return
-    return self.commands[command](*args)
+    return str(self.commands[command](*args))
 
   def broadcast(self, message, voters):
     self.logger.debug_log("Broadcasting: " + str(message))

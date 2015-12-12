@@ -15,7 +15,6 @@ class Administrator(client.Robot):
       self.state = constants.ADMINISTRATION_STATE
     return response
 
-
   def finish_administration(self):
     self.state = constants.ADMINISTRATION_COMPLETE_STATE
     self.broadcast(len(self.applied_for_signature.keys()), self.registered_voters)

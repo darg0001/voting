@@ -9,7 +9,7 @@ class Packet(object):
   @staticmethod
   def receive_packet(socket):
     packet = socket.recv(constants.PACKET_SIZE)
-    if packet == '':
+    if packet == None or packet == '':
       return (('', ''), '')
     header = packet[:constants.HEADER_SIZE].strip(constants.PACKET_PAD).split(constants.PACKET_SPACE)
     payload = packet[constants.HEADER_SIZE:].strip(constants.PACKET_PAD)

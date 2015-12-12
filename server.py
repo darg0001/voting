@@ -61,8 +61,11 @@ class MessageServer(object):
       for ready_event in ready_events:
         client_socket = self.client_fds[ready_event]
         ((return_address, target_address), message) = packet.Packet.receive_packet(client_socket)
-        if return_address != '' and target_address != '' and message != '':
-          self.send_message(return_address, target_address, message)
+        if return_address == '' or target_address == '' or message == '':
+          self.logger.error('Dropping invalid packet. One or more clients may have lost connection...')
+          return
+        print("sending message: " + return_address + " " + target_address + " " + message)
+        self.send_message(return_address, target_address, message)
 
   def broadcast(self, message):
     for client_name in self.client_sockets.keys():

@@ -33,14 +33,9 @@ class CryptoObject(object):
       output = (output << 1) | bit
     return output
 
-  """
-  Toy encoding scheme for mapping small integer values to
-  a boolean vector more appropriate for use in cryptographic algorithms
-  """
   @staticmethod
-  def encode_int(n):
-    assert(n < constants.ENCODED_VOTE_SIZE)
-    return [True if i % n == 0 else False for i in range(1, constants.ENCODED_VOTE_SIZE+ 1)]
+  def int_to_bit_vector(n):
+    return [int(x) for x in bin(int(n))[2:]]
 
 class SeededCryptoObject(CryptoObject):
 
@@ -88,27 +83,20 @@ class BitCommit(SeededCryptoObject):
   Uses Justesen codes to map (encode) bit vectors
   of size m to bit vectors of size q = 2^m
 
-  Currently uses a dummy implementation, eventually
+  Currently uses a toy implementation, eventually
   to be replaced with Justesen code
   """
-  def error_checking_encode(self, bit_vector):
-    chunk_size = (2**len(bit_vector)) / len(bit_vector)
-    code = []
-    for bit in bit_vector:
-      chunk = [1] * chunk_size if bit == 1 else [0] * chunk_size
-      code += chunk
-    self.logger.debug_log("Error checking code: " + str(CryptoObject.bit_vector_to_int(code)))
-    return code
+  @staticmethod
+  def error_checking_encode(n):
+    bit_vector = CryptoObject.int_to_bit_vector(n)
+    return ([0] * (constants.ENCODED_VOTE_SIZE - len(bit_vector))) + bit_vector
 
   """
   Decodes codes created by error_checking_encode
   """
-  def error_checking_decode(self, bit_vector):
-    chunk_size = len(bit_vector) / constants.ENCODED_VOTE_SIZE
-    decoded = []
-    for i in range(0, len(bit_vector), chunk_size):
-      decoded[i] = bit_vector[i]
-    return decoded
+  @staticmethod
+  def error_checking_decode(bit_vector):
+    return CryptoObject.bit_vector_to_int(bit_vector[:constants.ENCODED_VOTE_SIZE])
 
   """
   Constructs the key to be XOR'ed with the bit vector during commitment
@@ -118,8 +106,9 @@ class BitCommit(SeededCryptoObject):
     for i in range(len(bit_vector)):
       if bit_vector[i] == 1:
         one_indices.append(i)
-    seeded_sequence = self.random_bit_vector(len(bit_vector))
-    key = [0] * (len(bit_vector) / 2)
+    assert(len(one_indices) == len(bit_vector) / 2)
+    seeded_sequence = self.random_bit_vector(len(one_indices) * 2)
+    key = [0] * (len(one_indices))
     for i in range(len(key)):
       key[i] = seeded_sequence[one_indices[i]]
     self.logger.debug_log("Bit-commitment key: " + str(CryptoObject.bit_vector_to_int(key)))
@@ -127,13 +116,17 @@ class BitCommit(SeededCryptoObject):
 
   def commit(self, bit_vector, r):
     key = self.get_commit_key(r)
+    # key = self.random_bit_vector_proportion(len(bit_vector), len(bit_vector) / 2)
     assert(len(bit_vector) == len(key))
     commitment = [bit_vector[i] ^ key[i] for i in range(len(bit_vector))]
     self.logger.debug_log("Bit-commitment: " + str(CryptoObject.bit_vector_to_int(commitment)))
-    return commitment
+    commitment = CryptoObject.bit_vector_to_int(commitment)
+    assert(commitment < (constants.RSA_P * constants.RSA_Q))
+    return (key, commitment)
 
-  def check_commit(self, commitment):
-    pass
+  @staticmethod
+  def check_commit(commitment, commit_key):
+    return [commitment[i] ^ commit_key[i] for i in range(len(commitment))]
 
 class Signature(FiniteFieldCryptoObject):
 
@@ -153,7 +146,7 @@ class Signature(FiniteFieldCryptoObject):
   def sign(self, n):
     return pow(int(n), self.d, self.modulus)
 
-  # TODO: separate this from sign()
+  # This should be separated from signing
   def verify(self, n):
     return pow(int(n), self.e, self.modulus)
 

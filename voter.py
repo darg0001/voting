@@ -31,26 +31,27 @@ class Voter(client.User):
       for (i, candidate) in enumerate(candidates):
         self.logger.log(str(i + 1) + ': ' + candidate)
       self.logger.log("Enter vote below")
-      vote = raw_input("[" + self.prefix + "] ")
+      self.vote = raw_input("[" + self.prefix + "] ")
       try:
-        vote = int(vote)
+        self.vote = int(self.vote)
       except ValueError:
         self.logger.error("Vote must be a number from 1 to " + str(num_candidates))
       else:
-        if vote < 1 or vote > num_candidates:
+        if self.vote < 1 or self.vote > num_candidates:
           self.logger.error("Vote must be a number from 1 to " + str(num_candidates))
         else:
-          self.logger.debug_log("Voted for candidate " + str(vote))
-          self.vote = crypto.CryptoObject.encode_int(vote)
+          self.logger.debug_log("Voted for candidate " + str(self.vote))
+          # self.vote = crypto.CryptoObject.encode_int(vote)
           return self.vote
 
   def commit_vote(self):
-    q = 2 * (2 ** constants.ENCODED_VOTE_SIZE)
-    m = constants.ENCODED_VOTE_SIZE
-    n = (m / 2) * 3
-    r = crypto.CryptoObject.random_bit_vector_proportion(q, q/2)
-    c = self.committer.error_checking_encode(self.vote)
-    self.commitment = crypto.CryptoObject.bit_vector_to_int(self.committer.commit(c, r)) % (constants.RSA_P * constants.RSA_Q)
+    # constants.ENCODED_VOTE_SIZE = (3/2)n
+    # q = (3/2)n
+    two_q = constants.ENCODED_VOTE_SIZE * 2
+    r = crypto.CryptoObject.random_bit_vector_proportion(two_q, two_q / 2)
+    c = crypto.BitCommit.error_checking_encode(self.vote)
+
+    (self.commit_key, self.commitment) = self.committer.commit(c, r)
     self.logger.debug_log("Commitment: " + str(self.commitment))
     return self.commitment
 
@@ -107,11 +108,31 @@ class Voter(client.User):
       ((return_address, target_address), response) = self.receive_checked_message_from(target)
     self.logger.log("Voter list")
     self.logger.log("ID Vote Signed_Vote")
+    self.vote_list = {}
+    self.index = None
     for i in range(int(response)):
       ((return_address, target_address), vote_line) = self.receive_checked_message_from(target)
       vote_line = vote_line.split(constants.PACKET_SPACE)
+      if str(self.commitment) == vote_line[1]:
+        self.index = vote_line[0]
+      self.vote_list[vote_line[1]] = vote_line[2]
       self.logger.log(vote_line[0] + " " + vote_line[1])
+    assert(self.index != None)
     return
+
+  def open_vote(self):
+    if len(self.vote_list.keys()) != constants.VOTER_CAPACITY:
+      self.logger.error("Not all votes were collected")
+      return
+    if str(self.commitment) not in self.vote_list.keys():
+      self.logger.error("Vote was not collected")
+      return
+    target = "Counter"
+    self.send_command(target, "open_vote", [self.index, str(self.commit_key)])
+    ((return_address, target_address), response) = self.receive_checked_message_from(target)
+    while response == "wait" or response == "None":
+      ((return_address, target_address), response) = self.receive_checked_message_from(target)
+    self.logger.log(response)
 
 def main():
   voter_suffix = str(sys.argv[1])
@@ -127,6 +148,7 @@ def main():
   voter.send_vote_to_administrator()
   voter.check_administrator_certificate()
   voter.send_vote_to_counter()
+  voter.open_vote()
 
 if __name__ == "__main__":
   main()
