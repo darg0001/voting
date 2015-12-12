@@ -15,6 +15,7 @@ class Counter(client.Robot):
     self.votes_opened = 0
 
   def get_winners(self):
+    candidates = constants.BALLOT.split('\n')
     winners = []
     most_votes = 0
     for count in self.results:
@@ -22,7 +23,7 @@ class Counter(client.Robot):
         most_votes = count
     for i in range(len(self.results)):
       if self.results[i] == most_votes:
-        winners.append(str(i + 1))
+        winners.append(candidates[i])
     return winners
 
   def check_vote(self, vote):

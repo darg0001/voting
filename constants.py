@@ -10,7 +10,7 @@ PACKET_PAD='@'
 PACKET_SPACE='#'
 
 # The maximum number of clients the server can handle
-MESSAGE_SERVER_CAPACITY=4
+MESSAGE_SERVER_CAPACITY=5
 # The maximum number of voters the server can handle
 VOTER_CAPACITY=MESSAGE_SERVER_CAPACITY-2
 # The server's socket address
@@ -28,7 +28,7 @@ BLIND_SIGNATURE_TAG="BlindSignature"
 SIGNATURE_TAG="Signature"
 
 # Ballot used in election
-BALLOT="A\nB\nC"
+BALLOT="Alice\nBob\nEve"
 
 # The number of bits to encode a vote into
 # There should be no more than ENCODED_VOTE_SIZE 
