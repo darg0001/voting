@@ -11,9 +11,10 @@ class Voter(client.User):
     client.Client.__init__(self, crypto.Signature.hash(name), constants.VOTER_TAG)
     seed_size = (constants.ENCODED_VOTE_SIZE / 2) * 3
     self.seed = crypto.CryptoObject.random_bit_vector(seed_size)
-    self.bit_commit = crypto.BitCommit(crypto.CryptoObject.bit_vector_to_int(self.seed))
-    self.blind_signature = crypto.BlindSignature(constants.BLIND_SIGNATURE_MODULUS)
+    self.committer = crypto.BitCommit(crypto.CryptoObject.bit_vector_to_int(self.seed))
+    self.blinder = crypto.Blinder(constants.RSA_P, constants.RSA_Q, constants.RSA_E_ADMINISTRATOR)
     self.signer = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_VOTER)
+    self.verifier = crypto.Signature(constants.RSA_P, constants.RSA_Q, constants.RSA_E_ADMINISTRATOR)
 
   def register_id(self):
     target = "Administrator"
@@ -21,11 +22,8 @@ class Voter(client.User):
     ((return_address, target_address), response) = self.receive_checked_message_from(target)
     assert(eval(response))
 
-  def set_ballot(self, ballot):
-    self.ballot = ballot
-
-  def get_vote(self):
-    candidates = self.ballot.split('\n')
+  def get_vote(self, ballot):
+    candidates = ballot.split('\n')
     num_candidates = len(candidates)
     while True:
       self.logger.log('Ballot')
@@ -51,40 +49,31 @@ class Voter(client.User):
     m = constants.ENCODED_VOTE_SIZE
     n = (m / 2) * 3
     r = crypto.CryptoObject.random_bit_vector_proportion(q, q/2)
-    self.logger.debug_log("R vector: " + crypto.CryptoObject.bit_vector_to_string(r))
+    c = self.committer.error_checking_encode(self.vote)
+    self.commitment = crypto.CryptoObject.bit_vector_to_int(self.committer.commit(c, r)) % (constants.RSA_P * constants.RSA_Q)
+    self.logger.debug_log("Commitment: " + str(self.commitment))
+    return self.commitment
 
-    self.logger.debug_log("Seed: " + str(crypto.CryptoObject.bit_vector_to_int(self.seed)))
+  def blind(self):
+    self.blind_vote = self.blinder.blind(self.commitment)
+    self.logger.debug_log("Blinded vote: " + str(self.blind_vote))
+    return self.blind_vote
 
-    c = self.bit_commit.error_checking_encode(self.vote)
-    self.logger.debug_log("Error checked code: " + str(crypto.CryptoObject.bit_vector_to_int(c)))
+  def sign_vote(self):
+    self.signed_blind_vote = self.signer.sign(self.blind_vote)
+    self.logger.debug_log("Signed blind vote: " + str(self.signed_blind_vote))
+    return self.signed_blind_vote
 
-    commitment = self.bit_commit.commit(c, r)
-    self.logger.debug_log("Commitment: " + str(crypto.CryptoObject.bit_vector_to_int(commitment)))
-    return commitment
-
-  def blind_vote(self, vote):
-    r = crypto.CryptoObject.bit_vector_to_int(crypto.CryptoObject.random_bit_vector(constants.ENCODED_VOTE_SIZE))
-    self.blind_signature.set_r(r)
-    blinded_vote = vote * pow(r, constants.BLIND_SIGNATURE_PUBLIC_KEY, constants.BLIND_SIGNATURE_MODULUS)
-    signed_blind_vote = self.blind_signature.blind_sign(blinded_vote)
-    self.logger.debug_log("Blinded vote: " + str(signed_blind_vote))
-    return signed_blind_vote
-
-  def sign_vote(self, vote):
-    signature = self.signer.sign(vote)
-    self.logger.debug_log("Signed blinded vote: " + str(signature))
-    return signature
-
-  def send_vote(self, vote, blinded_commitment):
+  def send_vote(self):
     target = "Administrator"
-    self.send_command(target, "request_signature", [self.name, str(vote), str(blinded_commitment)])
+    self.send_command(target, "request_signature", [self.name, str(self.signed_blind_vote), str(self.blind_vote)])
     ((return_address, target_address), response) = self.receive_checked_message_from(target)
     if response == False:
       self.logger.error("Vote was rejected by administrator")
       return
-    certificate = None
+    self.certificate = None
     while response.split(constants.PACKET_SPACE)[0] == "wait":
-      certificate = response.split(constants.PACKET_SPACE)[1]
+      self.certificate = response.split(constants.PACKET_SPACE)[1]
       ((return_address, target_address), response) = self.receive_checked_message_from(target)
     self.logger.log("Voter list")
     self.logger.log("ID Commitment Signature")
@@ -92,12 +81,21 @@ class Voter(client.User):
       ((return_address, target_address), vote_line) = self.receive_checked_message_from(target)
       vote_line = vote_line.split(constants.PACKET_SPACE)
       self.logger.log(vote_line[0] + " " + vote_line[1] + " " + vote_line[2])
-    if certificate == None:
-      ((return_address, target_address), certificate) = self.receive_checked_message_from(target)
-    return certificate
+    if self.certificate == None:
+      ((return_address, target_address), response) = self.receive_checked_message_from(target)
+      self.certificate = int(response)
+    self.logger.debug_log("Administrator's certificate: " + str(self.certificate))
+    return self.certificate
 
-  def check_administrator_certificate(self, certificate):
-    pass
+  def check_administrator_certificate(self):
+    self.signed_unblinded_vote = self.blinder.retrieve(self.certificate)
+    self.logger.debug_log("Signed vote: " + str(self.signed_unblinded_vote))
+    unsigned_unblinded_vote = self.verifier.verify(self.signed_unblinded_vote)
+    self.logger.debug_log("Unsigned vote: " + str(unsigned_unblinded_vote))
+    if unsigned_unblinded_vote != self.commitment:
+      self.logger.error("Could not verify administrator's certificate")
+      return
+    self.logger.log("Verified administrator's certificate")
 
 def main():
   voter_suffix = str(sys.argv[1])
@@ -106,13 +104,12 @@ def main():
   voter = Voter(voter_name)
   voter.connect_to_server(constants.MESSAGE_SERVER_ADDRESS)
   voter.register_id()
-  voter.set_ballot(constants.BALLOT)
-  voter.get_vote()
-  commitment = crypto.CryptoObject.bit_vector_to_int(voter.commit_vote())
-  blinded_commitment = voter.blind_vote(commitment)
-  signed_blinded_commitment = voter.sign_vote(blinded_commitment)
-  certificate = voter.send_vote(signed_blinded_commitment, blinded_commitment)
-  voter.check_administrator_certificate(certificate)
+  voter.get_vote(constants.BALLOT)
+  voter.commit_vote()
+  voter.blind()
+  voter.sign_vote()
+  voter.send_vote()
+  voter.check_administrator_certificate()
 
 if __name__ == "__main__":
   main()

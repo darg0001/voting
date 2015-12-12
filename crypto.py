@@ -135,20 +135,6 @@ class BitCommit(SeededCryptoObject):
   def check_commit(self, commitment):
     pass
 
-class BlindSignature(FiniteFieldCryptoObject):
-
-  def __init__(self, modulus):
-    FiniteFieldCryptoObject.__init__(self, constants.BLIND_SIGNATURE_TAG, modulus)
-
-  def set_r(self, r):
-    self.r = r
-
-  def blind_sign(self, n):
-    return pow(int(n), self.get_inverse(constants.BLIND_SIGNATURE_PUBLIC_KEY), self.modulus)
-
-  def verify(self, n):
-    return (pow(int(n), constants.BLIND_SIGNATURE_PUBLIC_KEY, self.modulus) * self.get_inverse(self.r)) % self.modulus
-
 class Signature(FiniteFieldCryptoObject):
 
   def __init__(self, p, q, e):
@@ -157,7 +143,6 @@ class Signature(FiniteFieldCryptoObject):
     self.p = p
     self.q = q
     self.e = e
-    self.n = (p * q) % self.modulus
     self.d = self.get_inverse_mod(self.e, (self.p - 1) * (self.q - 1))
 
   @staticmethod
@@ -166,10 +151,26 @@ class Signature(FiniteFieldCryptoObject):
     return int(hashlib.md5(str(n)).hexdigest(), 16) % modulus
 
   def sign(self, n):
-    return pow(self.hash(n), self.d, self.modulus)
+    return pow(int(n), self.d, self.modulus)
 
+  # TODO: separate this from sign()
   def verify(self, n):
     return pow(int(n), self.e, self.modulus)
+
+class Blinder(FiniteFieldCryptoObject):
+
+  def __init__(self, p, q, e):
+    FiniteFieldCryptoObject.__init__(self, constants.BLIND_SIGNATURE_TAG, p * q)
+    self.p = p
+    self.q = q
+    self.e = e
+    self.r = CryptoObject.bit_vector_to_int(CryptoObject.random_bit_vector(constants.ENCODED_VOTE_SIZE))
+
+  def blind(self, n):
+    return (int(n) * pow(self.r, self.e, self.modulus)) % self.modulus
+
+  def retrieve(self, n):
+    return (int(n) * self.get_inverse(self.r)) % self.modulus
 
 if __name__ == "__main__":
   main()
