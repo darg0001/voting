@@ -11,6 +11,8 @@ PACKET_SPACE='#'
 
 # The maximum number of clients the server can handle
 MESSAGE_SERVER_CAPACITY=4
+# The maximum number of voters the server can handle
+VOTER_CAPACITY=MESSAGE_SERVER_CAPACITY-2
 # The server's socket address
 MESSAGE_SERVER_ADDRESS=('localhost', 6610)
 # The maximum amount of time the server spends accepting clients

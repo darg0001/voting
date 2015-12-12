@@ -80,3 +80,8 @@ class Robot(Client):
       self.logger.error("Command not recognized")
       return
     return self.commands[command](*args)
+
+  def broadcast(self, message, voters):
+    self.logger.debug_log("Broadcasting: " + str(message))
+    for voter in voters:
+      self.send_signed_message(voter, message)

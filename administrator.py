@@ -10,23 +10,19 @@ class Administrator(client.Robot):
     if voter not in self.registered_voters:
       self.registered_voters.add(voter)
       response = True
-    if len(self.registered_voters) == constants.MESSAGE_SERVER_CAPACITY - 2:
+    if len(self.registered_voters) == constants.VOTER_CAPACITY:
       self.logger.log("Reached registered voter limit")
       self.state = constants.ADMINISTRATION_STATE
     return response
 
-  def broadcast(self, message):
-    self.logger.debug_log("Broadcasting: " + str(message))
-    for voter_id in self.registered_voters:
-      self.send_signed_message(voter_id, message)
 
   def finish_administration(self):
     self.state = constants.ADMINISTRATION_COMPLETE_STATE
-    self.broadcast(len(self.applied_for_signature.keys()))
+    self.broadcast(len(self.applied_for_signature.keys()), self.registered_voters)
     for voter_id in self.applied_for_signature.keys():
       (vote, blinded_commitment) = self.applied_for_signature[voter_id]
       vote_line = str(voter_id) + constants.PACKET_SPACE + str(vote) + constants.PACKET_SPACE + str(blinded_commitment)
-      self.broadcast(vote_line)
+      self.broadcast(vote_line, self.registered_voters)
 
   def check_and_sign_vote(self, voter_id, signed_blind_vote, blind_vote):
     assert(self.state == constants.ADMINISTRATION_STATE)

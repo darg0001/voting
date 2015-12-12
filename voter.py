@@ -64,7 +64,7 @@ class Voter(client.User):
     self.logger.debug_log("Signed blind vote: " + str(self.signed_blind_vote))
     return self.signed_blind_vote
 
-  def send_vote(self):
+  def send_vote_to_administrator(self):
     target = "Administrator"
     self.send_command(target, "request_signature", [self.name, str(self.signed_blind_vote), str(self.blind_vote)])
     ((return_address, target_address), response) = self.receive_checked_message_from(target)
@@ -76,7 +76,7 @@ class Voter(client.User):
       self.certificate = response.split(constants.PACKET_SPACE)[1]
       ((return_address, target_address), response) = self.receive_checked_message_from(target)
     self.logger.log("Voter list")
-    self.logger.log("ID Commitment Signature")
+    self.logger.log("ID Blinded_Vote Signed_Blinded_Vote")
     for i in range(int(response)):
       ((return_address, target_address), vote_line) = self.receive_checked_message_from(target)
       vote_line = vote_line.split(constants.PACKET_SPACE)
@@ -94,8 +94,24 @@ class Voter(client.User):
     self.logger.debug_log("Unsigned vote: " + str(unsigned_unblinded_vote))
     if unsigned_unblinded_vote != self.commitment:
       self.logger.error("Could not verify administrator's certificate")
+      self.logger.log("Commitment: " + str(self.commitment))
+      self.logger.log("Unverifiable certificate: " + str(self.signed_unblinded_vote))
       return
     self.logger.log("Verified administrator's certificate")
+
+  def send_vote_to_counter(self):
+    target = "Counter"
+    self.send_command(target, "collect_vote", [self.name, str(self.commitment), str(self.signed_unblinded_vote)])
+    ((return_address, target_address), response) = self.receive_checked_message_from(target)
+    while response == "wait":
+      ((return_address, target_address), response) = self.receive_checked_message_from(target)
+    self.logger.log("Voter list")
+    self.logger.log("ID Vote Signed_Vote")
+    for i in range(int(response)):
+      ((return_address, target_address), vote_line) = self.receive_checked_message_from(target)
+      vote_line = vote_line.split(constants.PACKET_SPACE)
+      self.logger.log(vote_line[0] + " " + vote_line[1])
+    return
 
 def main():
   voter_suffix = str(sys.argv[1])
@@ -108,8 +124,9 @@ def main():
   voter.commit_vote()
   voter.blind()
   voter.sign_vote()
-  voter.send_vote()
+  voter.send_vote_to_administrator()
   voter.check_administrator_certificate()
+  voter.send_vote_to_counter()
 
 if __name__ == "__main__":
   main()
