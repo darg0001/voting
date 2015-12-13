@@ -49,7 +49,7 @@ class Voter(client.User):
     # q = (3/2)n
     two_q = constants.ENCODED_VOTE_SIZE * 2
     r = crypto.CryptoObject.random_bit_vector_proportion(two_q, two_q / 2)
-    c = crypto.BitCommit.error_checking_encode(self.vote)
+    c = crypto.BitCommit.error_correcting_encode(self.vote)
 
     (self.commit_key, self.commitment) = self.committer.commit(c, r)
     self.logger.debug_log("Commitment: " + str(self.commitment))

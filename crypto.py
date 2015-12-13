@@ -87,15 +87,15 @@ class BitCommit(SeededCryptoObject):
   to be replaced with Justesen code
   """
   @staticmethod
-  def error_checking_encode(n):
+  def error_correcting_encode(n):
     bit_vector = CryptoObject.int_to_bit_vector(n)
     return ([0] * (constants.ENCODED_VOTE_SIZE - len(bit_vector))) + bit_vector
 
   """
-  Decodes codes created by error_checking_encode
+  Decodes codes created by error_correcting_encode
   """
   @staticmethod
-  def error_checking_decode(bit_vector):
+  def error_correcting_decode(bit_vector):
     return CryptoObject.bit_vector_to_int(bit_vector[:constants.ENCODED_VOTE_SIZE])
 
   """

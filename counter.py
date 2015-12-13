@@ -27,14 +27,14 @@ class Counter(client.Robot):
     return winners
 
   def check_vote(self, vote):
-    # In reality, we should decode the error checking value here
+    # In reality, we should decode the error correcting value here
     # then check the validity of the vote
     return vote < len(constants.BALLOT.split('\n')) + 1
 
   def open_vote(self, voter, commit_key):
     commit_key = eval(commit_key)
     vote = int(self.votes[int(voter)][0])
-    vote = crypto.BitCommit.check_commit(crypto.BitCommit.error_checking_encode(vote), commit_key)
+    vote = crypto.BitCommit.check_commit(crypto.BitCommit.error_correcting_encode(vote), commit_key)
     vote = crypto.CryptoObject.bit_vector_to_int(vote)
     if self.check_vote(vote) == False:
       self.logger.error("Vote is not valid")
